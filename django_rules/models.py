@@ -25,11 +25,11 @@ class RulePermission(models.Model):
         raises ValidationError if it doesn't. We need to restrict security rules creation
         """
         # If not set use codename as field_name as default
-        if self.field_name == '':
+        if not self.field_name:
             self.field_name = self.codename
 
         # If not set use primary key attribute name as default
-        if self.view_param_pk == '':
+        if not self.view_param_pk:
             self.view_param_pk = self.content_type.model_class()._meta.pk.get_attname()
 
         # First search for a method or property defined in the model class

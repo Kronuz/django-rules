@@ -5,7 +5,9 @@ import sys
 from django.contrib.contenttypes.models import ContentType
 
 from models import RulePermission
-    
+
+rules = set()
+
 def register(app_name, codename, model, field_name='', view_param_pk='', description=''):
     """
     Call this function in your rules.py to register your RulePermissions
@@ -18,14 +20,10 @@ def register(app_name, codename, model, field_name='', view_param_pk='', descrip
         sys.stderr.write('! Rule codenamed %s will not be synced as model %s was not found for app %s\n' % (codename, model, app_name))
         return
 
-    try:
-        # We see if the rule's pk exists, if it does then delete and overwrite it
-        rule = RulePermission.objects.get(pk = codename)
-        rule.delete()
-        sys.stderr.write('Careful rule %s being overwritten. Make sure its codename is not repeated in other rules.py files\n' % codename)
-        RulePermission.objects.create(codename=codename, field_name=field_name, content_type=ctype,
-                    view_param_pk=view_param_pk, description=description)
+    rule, created = RulePermission.objects.get_or_create(codename=codename, content_type=ctype, defaults=dict(field_name=field_name,
+                view_param_pk=view_param_pk, description=description))
 
-    except RulePermission.DoesNotExist:
-        RulePermission.objects.create(codename=codename, field_name=field_name, content_type=ctype,
-                    view_param_pk=view_param_pk, description=description)
+    if codename in rules:
+        sys.stderr.write('Careful rule %s being overwritten. Make sure its codename is not repeated in other rules.py files\n' % codename)
+
+    rules.add(codename)
