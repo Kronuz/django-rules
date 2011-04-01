@@ -3,27 +3,55 @@ import inspect
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.contenttypes.models import ContentType
+from django.utils.translation import ugettext_lazy as _
 
 from exceptions import NonexistentFieldName
 from exceptions import RulesError
 
+class RulePermissionManager(models.Manager):
+    def get_by_natural_key(self, codename, app_label, model):
+        return self.get(
+            codename=codename,
+            content_type=ContentType.objects.get_by_natural_key(app_label, model)
+        )
 
 class RulePermission(models.Model):
     """
     This model holds the rules for the authorization system
     """
-    codename = models.CharField(primary_key=True, max_length=30)
-    field_name = models.CharField(max_length=30)
+    name = models.CharField(_('name'), max_length=50)
+    codename = models.CharField(_('codename'), max_length=100)
+    field_name = models.CharField(_('field name'), max_length=100)
     content_type = models.ForeignKey(ContentType)
     view_param_pk = models.CharField(max_length=30)
     description = models.CharField(max_length=140, null=True)
+    objects = RulePermissionManager()
 
+    class Meta:
+        verbose_name = _('permission')
+        verbose_name_plural = _('permissions')
+        unique_together = (('content_type', 'codename'),)
+        ordering = ('content_type__app_label', 'content_type__model', 'codename')
+
+    def __unicode__(self):
+        return u"%s | %s | %s" % (
+            unicode(self.content_type.app_label),
+            unicode(self.content_type),
+            unicode(self.name))
+
+    def natural_key(self):
+        return (self.codename,) + self.content_type.natural_key()
+    natural_key.dependencies = ['contenttypes.contenttype']
 
     def save(self, *args, **kwargs):
         """
         Validates that the field_name exists in the content_type model
         raises ValidationError if it doesn't. We need to restrict security rules creation
         """
+        # If not set use codename as field_name as default
+        if not self.name:
+            self.name = self.codename[:50].replace('-', ' ').replace('_', ' ').capitalize()
+
         # If not set use codename as field_name as default
         if not self.field_name:
             self.field_name = self.codename

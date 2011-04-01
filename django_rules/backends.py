@@ -64,12 +64,18 @@ class ObjectPermissionBackend(object):
         # Note:
         # is_active and is_superuser are checked by default in django.contrib.auth.models
         # lines from 301-306 in Django 1.2.3
-	# If this checks dissapear in mainstream, tests will fail, so we won't double check them :)
+        # If this checks dissapear in mainstream, tests will fail, so we won't double check them :)
         ctype = ContentType.objects.get_for_model(obj)
+        codename, _, app_name = perm.partition('.')
+        if app_name:
+            codename, app_name = app_name, codename
+        if app_name and ctype.app_name != app_name:
+                raise RulesError('Object on model %s does not belong to app %s',
+                                        (ctype.model, app_name))
 
         # We get the rule data and return the value of that rule
         try:
-            rule = RulePermission.objects.get(codename = perm, content_type = ctype)
+            rule = RulePermission.objects.get(codename=codename, content_type=ctype)
         except RulePermission.DoesNotExist:
             raise NonexistentPermission('RulePermission with codename %s on model %s does not exist',
                                         (perm, ctype.model))

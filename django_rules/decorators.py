@@ -52,19 +52,32 @@ def object_permission_required(perm, **kwargs):
     def decorator(view_func):
         def _wrapped_view(request, *args, **kwargs):
             obj = None
-            
-            try:
-                rule = RulePermission.objects.get(codename = perm)
-            except RulePermission.DoesNotExist:
-                raise NonexistentPermission("Permission %s does not exist" % perm)
 
-            # Only look in kwargs, if the views are entry points through urls Django passes parameters as kwargs
-            # We could look in args using  inspect.getcallargs in Python 2.7 or a custom function that 
-            # imitates it, but if the view is internal, I think it's better to force the user to pass 
-            # parameters as kwargs
-            if rule.view_param_pk not in kwargs: 
-                raise RulesError("The view does not have a parameter called %s in kwargs" % rule.view_param_pk)
-                
+            app_label, _, codename = perm.partition('.')
+            if codename:
+                _rules = RulePermission.objects.filter(content_type__app_label=app_label, codename=codename)
+            else:
+                _rules = RulePermission.objects.filter(codename=app_label)
+            rule = None
+            rules = []
+            for rule in _rules:
+                # Only look in kwargs, if the views are entry points through urls Django passes parameters as kwargs
+                # We could look in args using  inspect.getcallargs in Python 2.7 or a custom function that 
+                # imitates it, but if the view is internal, I think it's better to force the user to pass 
+                # parameters as kwargs
+                if rule.view_param_pk in kwargs:
+                    rules.append(rule)
+            if rules:
+                if len(rules) == 1:
+                    rule = rules[0]
+                else:
+                    raise RulesError("Ambiguous permission, more than one rule found for %s" % perm)
+            else:
+                if rule:
+                    raise RulesError("The view does not have a parameter called %s in kwargs" % rule.view_param_pk)
+                else:
+                    raise NonexistentPermission("Permission %s does not exist" % perm)
+
             model_class = rule.content_type.model_class()
             obj = get_object_or_404(model_class, pk=kwargs[rule.view_param_pk])
 
