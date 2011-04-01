@@ -95,7 +95,7 @@ class ObjectPermissionBackend(object):
             else:
                 is_authorized = bound_field()
 
-            if not isinstance(is_authorized, bool):
+            if not isinstance(is_authorized, bool) and is_authorized is not None:
                 raise NotBooleanPermission("Callable %s from model %s on rule %s does not return a boolean value",
                                             (rule.field_name, rule.content_type.model, rule.codename))
 

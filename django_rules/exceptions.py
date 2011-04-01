@@ -15,3 +15,6 @@ class NonexistentFieldName(RulesError):
 
 class NotBooleanPermission(RulesError):
     pass
+
+class NotUser(RulesError):
+    pass
